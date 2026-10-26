@@ -24,8 +24,7 @@ The Surface Go 3 is a Surface Go 2 with new CPUs: same chassis, display, Intel A
 - Bluetooth
 - Touchscreen
 - Sound (ALC298, layout-id 69)
-- Power button
-- Volume buttons with `IntelHIDButtons.kext` (see [Volume and power buttons](#volume-and-power-buttons))
+- Power button and volume buttons with `IntelHIDButtons.kext`; the power button behaves like a Mac's (see [Volume and power buttons](#volume-and-power-buttons))
 
 **Expected to work (works on the Go 2 with the upstream EFI, not yet confirmed on a Go 3)**
 
@@ -36,11 +35,8 @@ The Surface Go 3 is a Surface Go 2 with new CPUs: same chassis, display, Intel A
 - USB-C (including display output), microSD reader
 - Hibernation (`hibernatemode 25`)
 
-**Experimental**
-
-- The power button with `IntelHIDButtons.kext` 1.0.1, which sends it as the Mac power key. Until that is confirmed, the kext stays disabled in `config.plist` by default; add it with `add-kext-internal.sh` (see [Volume and power buttons](#volume-and-power-buttons)).
-
 **Not working**
+
 - Front, rear and IR cameras (Intel IPU3, no macOS driver), NFC, automatic rotation
 - Sleep: use hibernation instead, which resumes in about 10 seconds
 - AirDrop, Handoff, Sidecar and other features that need an Apple-compatible Broadcom card
@@ -53,6 +49,7 @@ The Surface Go 3 is a Surface Go 2 with new CPUs: same chassis, display, Intel A
 4. **The upstream `setup_var` tools are removed.** They write CFG Lock, VT-d and DVMT variables at offsets taken from the Go 2 firmware; running them on a Go 3 could leave it unbootable. CFG Lock is handled by the `AppleXcpmCfgLock` quirk and DVMT by framebuffer patches instead.
 5. Kexts that only load on Ventura or Sonoma are removed.
 6. SMBIOS fields are empty. **Generate your own** before booting (see below).
+7. **Volume and power buttons** through `IntelHIDButtons.kext`, a small kext written for the Go 3 (see [Volume and power buttons](#volume-and-power-buttons)).
 
 ## Installation
 
@@ -144,7 +141,7 @@ In the Surface UEFI (shut down, hold **Volume Up**, press Power):
 
 **What `IntelHIDButtons.kext` does.** It attaches to `INT33D5`, tells the firmware a buttons driver is loaded (`BTNL`, then `HDSM` and `BTNE`), and turns `0xC4`–`0xC7` into the volume keys through its own virtual keyboard. `BTNL` also moves the power button to this device (`0xCE` press, `0xCF` release), so the kext sends it as the Mac power key with the real press duration and macOS applies its usual power button behavior: hold it about 1.5 seconds to sleep, or press Control–power for the restart, sleep or shut down dialog. Version 1.0.0 forwarded the press with `IOPMrootDomain::receivePowerNotification`, which macOS ignores while the system is running, so a short press did nothing. Source and build script: [`Kexts-src/IntelHIDButtons`](Kexts-src/IntelHIDButtons) (Command Line Tools and [MacKernelSDK](https://github.com/acidanthera/MacKernelSDK), no Xcode needed).
 
-**Add or update it on an existing installation.** On the Surface, with Wi-Fi working, run in Terminal (it backs up your `config.plist` first and keeps your SMBIOS):
+**Add or update it on an existing installation.** The kext is included and enabled in `EFI/`. To add it to an EFI you installed earlier, or to update it, run in Terminal on the Surface with Wi-Fi working (it backs up your `config.plist` first and keeps your SMBIOS):
 
 ```bash
 cd ~/Downloads

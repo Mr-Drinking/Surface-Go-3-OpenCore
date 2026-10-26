@@ -24,8 +24,7 @@ Surface Go 3 其实就是换了 CPU 的 Surface Go 2，机身、屏幕、Intel A
 - 蓝牙
 - 触摸屏
 - 声音（ALC298，layout-id 69）
-- 电源键
-- 音量键（用 `IntelHIDButtons.kext`，见[音量键和电源键](#音量键和电源键)）
+- 电源键和音量键（用 `IntelHIDButtons.kext`，电源键的表现和真 Mac 一样，见[音量键和电源键](#音量键和电源键)）
 
 **预计可用（上游 EFI 在 Go 2 上可用，Go 3 上尚未确认）**
 
@@ -36,11 +35,8 @@ Surface Go 3 其实就是换了 CPU 的 Surface Go 2，机身、屏幕、Intel A
 - USB-C（包括视频输出）、microSD 读卡器
 - 休眠（`hibernatemode 25`）
 
-**实验性**
-
-- 装了 `IntelHIDButtons.kext` 1.0.1 之后的电源键：它会把电源键当成 Mac 的电源键发给系统。确认之前，`config.plist` 里这个驱动默认关闭，可以用 `add-kext-internal.sh` 添加（见[音量键和电源键](#音量键和电源键)）。
-
 **不可用**
+
 - 前置、后置、红外摄像头（Intel IPU3，macOS 没有驱动），NFC，自动旋转
 - 睡眠：改用休眠，唤醒大约 10 秒
 - 隔空投送、接力、随航等需要苹果兼容博通网卡的功能
@@ -53,6 +49,7 @@ Surface Go 3 其实就是换了 CPU 的 Surface Go 2，机身、屏幕、Intel A
 4. **删掉了上游的 `setup_var` 工具。** 它们按 Go 2 固件的位置修改 CFG Lock、VT-d、DVMT 变量，在 Go 3 上运行可能导致无法开机。CFG Lock 改由 `AppleXcpmCfgLock` 补丁处理，DVMT 改由显卡帧缓冲补丁处理。
 5. 删掉了只在 Ventura、Sonoma 上才加载的驱动。
 6. 序列号等 SMBIOS 字段是空的，启动前请**自己生成**（见下文）。
+7. **音量键和电源键**：靠专门为 Go 3 写的小驱动 `IntelHIDButtons.kext`（见[音量键和电源键](#音量键和电源键)）。
 
 ## 安装
 
@@ -144,7 +141,7 @@ sudo ./make-usb.sh disk4
 
 **`IntelHIDButtons.kext` 做了什么。** 它挂在 `INT33D5` 上，告诉固件按键驱动已加载（依次调用 `BTNL`、`HDSM`、`BTNE`），再用自己的虚拟键盘把 `0xC4`–`0xC7` 转成音量键。调用 `BTNL` 后，电源键也会改到这个设备上（按下 `0xCE`、松开 `0xCF`），所以驱动把它当成 Mac 的电源键，按真实的按下时长发给系统，由 macOS 按标准方式处理：按住约 1.5 秒睡眠，Control + 电源键弹出「重新启动 / 睡眠 / 关机」菜单。1.0.0 版用的是 `IOPMrootDomain::receivePowerNotification`，系统运行时 macOS 会忽略它，所以轻按没有反应。源码和编译脚本见 [`Kexts-src/IntelHIDButtons`](Kexts-src/IntelHIDButtons)，用命令行工具和 [MacKernelSDK](https://github.com/acidanthera/MacKernelSDK) 就能编译，不需要 Xcode。
 
-**添加或更新到已经装好的系统里。** 在 Surface 上连好 Wi-Fi，在终端运行下面几行（脚本会先备份 `config.plist`，序列号等不会动）：
+**添加或更新到已经装好的系统里。** `EFI/` 里已经包含并启用了这个驱动。如果要把它加到以前装好的 EFI 里，或者更新它，就在 Surface 上连好 Wi-Fi，在终端运行下面几行（脚本会先备份 `config.plist`，序列号等不会动）：
 
 ```bash
 cd ~/Downloads

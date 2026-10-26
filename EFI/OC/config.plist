@@ -929,9 +929,9 @@
 				<key>BundlePath</key>
 				<string>IntelHIDButtons.kext</string>
 				<key>Comment</key>
-				<string>Volume buttons via the Intel HID device INT33D5 (experimental)</string>
+				<string>Volume and power buttons via the Intel HID device INT33D5</string>
 				<key>Enabled</key>
-				<false/>
+				<true/>
 				<key>ExecutablePath</key>
 				<string>Contents/MacOS/IntelHIDButtons</string>
 				<key>MaxKernel</key>
