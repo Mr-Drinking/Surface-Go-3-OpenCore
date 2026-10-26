@@ -2,3 +2,5 @@
 logs/
 InstallAssistant.pkg
 HeliPort.dmg
+Kexts-src/IntelHIDButtons/MacKernelSDK/
+Kexts-src/IntelHIDButtons/build/

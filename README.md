@@ -35,9 +35,11 @@ The Surface Go 3 is a Surface Go 2 with new CPUs: same chassis, display, Intel A
 - USB-C (including display output), microSD reader
 - Hibernation (`hibernatemode 25`)
 
-**Not working**
+**Experimental**
 
-- Volume buttons. The Go 3 firmware reports them only to the Intel HID device (`INT33D5`, `\_SB.HIDD`) through the EC queries `_QD1`–`_QD4` (notifications `0xC4`–`0xC7`), and macOS has no driver for that device. The Go 2 only uses that path after Windows' Intel HID driver enables it, and otherwise falls back to an emulated PS/2 keyboard (`PS2K`), which VoodooPS2 handles; the Go 3 has no `PS2K` at all. YogaSMC's YogaHIDD understands these events but can only send keys through VoodooPS2, so a fix needs a small kext that posts the keys itself.
+- Volume buttons with the included `IntelHIDButtons.kext`, disabled by default until it is confirmed on a Go 3. See [Volume buttons](#volume-buttons-experimental).
+
+**Not working**
 - Front, rear and IR cameras (Intel IPU3, no macOS driver), NFC, automatic rotation
 - Sleep: use hibernation instead, which resumes in about 10 seconds
 - AirDrop, Handoff, Sidecar and other features that need an Apple-compatible Broadcom card
@@ -135,6 +137,30 @@ In the Surface UEFI (shut down, hold **Volume Up**, press Power):
 - **Read the boot logs.** Connect the stick to your Mac and run `sudo ./update-usb-efi.sh diskN`. It copies `opencore-*.txt` and panic reports into `logs/` and refreshes the stick's EFI. If no log was written, OpenCore never ran.
 - **Reset NVRAM** from the picker (press Space to show auxiliary entries).
 
+## Volume buttons (experimental)
+
+**Why they need a kext.** The Go 3 firmware reports the volume buttons only to the Intel HID device (`INT33D5`, `\_SB.HIDD`): the EC queries `_QD1`–`_QD4` send it the notifications `0xC4`–`0xC7` (volume up / down, press / release). macOS has no driver for that device. The Go 2 only uses that path after Windows' Intel HID driver enables it, and otherwise falls back to an emulated PS/2 keyboard (`PS2K`) that VoodooPS2 handles; the Go 3 has no `PS2K` at all. YogaSMC's YogaHIDD understands these events but can only send keys through VoodooPS2.
+
+**What `IntelHIDButtons.kext` does.** It attaches to `INT33D5`, tells the firmware a buttons driver is loaded (`BTNL`, then `HDSM` and `BTNE`), and turns `0xC4`–`0xC7` into the volume keys through its own virtual keyboard. `BTNL` also moves the power button from the ACPI power button device to this device (`0xCE` / `0xCF`), so the kext forwards a power button press to macOS the same way the ACPI device did. Source and build script: [`Kexts-src/IntelHIDButtons`](Kexts-src/IntelHIDButtons) (Command Line Tools and [MacKernelSDK](https://github.com/acidanthera/MacKernelSDK), no Xcode needed).
+
+**Add it to an existing installation.** On the Surface, with Wi-Fi working, run in Terminal (it backs up your `config.plist` first and keeps your SMBIOS):
+
+```bash
+cd ~/Downloads
+curl -L -o Surface-Go-3-OpenCore.zip https://github.com/Mr-Drinking/Surface-Go-3-OpenCore/archive/refs/heads/main.zip
+unzip -q -o Surface-Go-3-OpenCore.zip
+sudo bash Surface-Go-3-OpenCore-main/add-kext-internal.sh IntelHIDButtons
+```
+
+Unplug the USB installer and reboot. `ioreg -rc IntelHIDButtons | grep -E 'DSMFunctions|ButtonCaps'` shows whether the kext is running.
+
+**Undo.** If the Surface does not boot, boot the USB installer (hold Volume Down), then restore the backup the script printed:
+
+```bash
+sudo diskutil mount disk0s1
+sudo cp ~/config-backup-YYYYMMDD-HHMMSS.plist /Volumes/EFI/EFI/OC/config.plist
+```
+
 ## Optional: native Wi-Fi menu
 
 AirportItlwm gives you the native Wi-Fi menu, but on Sequoia it needs Apple's `IOSkywalkFamily.kext` and `IO80211FamilyLegacy.kext` from older macOS releases, plus `AMFIPass.kext`, SIP partially disabled (`csr-active-config = 03080000`) and a root patch with [OCLP-Mod](https://github.com/laobamac/OCLP-Mod/releases) after every macOS update. Those Apple binaries are not redistributed here; [jlempen/Surface-Go-2-OpenCore](https://github.com/jlempen/Surface-Go-2-OpenCore) has the kexts and instructions.
@@ -149,7 +175,8 @@ The Pentium Gold 6500Y scores roughly 900–1050 single-core and 1750–1850 mul
 - [acidanthera](https://github.com/acidanthera) for OpenCore, Lilu, VirtualSMC, WhateverGreen, AppleALC, NVMeFix, RestrictEvents, HibernationFixup, CPUFriend, BrcmPatchRAM (BlueToolFixup) and VoodooPS2, and [btwise](https://gitee.com/btwise/OpenCore_NO_ACPI) / [wjz304](https://github.com/wjz304/OpenCore_NO_ACPI_Build) for the OpenCore_NO_ACPI build
 - [OpenIntelWireless](https://github.com/OpenIntelWireless) for itlwm, IntelBluetoothFirmware and HeliPort
 - [VoodooI2C](https://github.com/VoodooI2C/VoodooI2C), [ECEnabler](https://github.com/1Revenger1/ECEnabler), [RealtekCardReader](https://github.com/0xFireWolf/RealtekCardReader) / [RealtekCardReaderFriend](https://github.com/0xFireWolf/RealtekCardReaderFriend), [VoltageShift](https://github.com/sicreative/VoltageShift)
-- [linux-surface](https://github.com/linux-surface/acpidumps) for the Surface Go 3 ACPI dumps that made the battery fix possible
+- [linux-surface](https://github.com/linux-surface/acpidumps) for the Surface Go 3 ACPI dumps that made the battery and volume button fixes possible
+- [BrightnessKeys](https://github.com/acidanthera/BrightnessKeys) (BSD-3-Clause), whose virtual keyboard `IntelHIDButtons` follows; Linux's `intel-hid` driver and [YogaSMC](https://github.com/zhen-zen/YogaSMC) documented the Intel HID interface
 - [Dortania](https://dortania.github.io/OpenCore-Install-Guide/) for the OpenCore Install Guide
 
 The configuration, SSDT and scripts are MIT licensed (see [LICENSE](LICENSE)). Each bundled kext, driver and OpenCore binary keeps its own upstream license.

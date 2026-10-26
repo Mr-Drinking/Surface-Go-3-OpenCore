@@ -35,9 +35,11 @@ Surface Go 3 其实就是换了 CPU 的 Surface Go 2，机身、屏幕、Intel A
 - USB-C（包括视频输出）、microSD 读卡器
 - 休眠（`hibernatemode 25`）
 
-**不可用**
+**实验性**
 
-- 音量键。Go 3 固件只通过 EC 事件 `_QD1`–`_QD4`，把音量键发给 Intel HID 设备（`INT33D5`，`\_SB.HIDD`，通知码 `0xC4`–`0xC7`），而 macOS 没有这个设备的驱动。Go 2 只有在 Windows 的 Intel HID 驱动启用之后才走这条路，否则会退回到模拟的 PS/2 键盘（`PS2K`），由 VoodooPS2 接收；Go 3 则完全没有 `PS2K`。YogaSMC 的 YogaHIDD 能识别这些事件，但只能借 VoodooPS2 发出按键，所以要修好，需要一个能自己发按键的小驱动。
+- 音量键：用仓库自带的 `IntelHIDButtons.kext`。在 Go 3 上确认可用之前，默认是关闭的。见[音量键](#音量键实验性)。
+
+**不可用**
 - 前置、后置、红外摄像头（Intel IPU3，macOS 没有驱动），NFC，自动旋转
 - 睡眠：改用休眠，唤醒大约 10 秒
 - 隔空投送、接力、随航等需要苹果兼容博通网卡的功能
@@ -135,6 +137,30 @@ sudo ./make-usb.sh disk4
 - **看启动日志。** 把安装盘插回 Mac，运行 `sudo ./update-usb-efi.sh diskN`。它会把 `opencore-*.txt` 和内核崩溃记录拷到 `logs/`，并更新安装盘上的 EFI。如果一份日志都没有，说明 OpenCore 根本没运行。
 - **重置 NVRAM**：在 OpenCore 菜单按空格显示隐藏项，选 Reset NVRAM。
 
+## 音量键（实验性）
+
+**为什么需要一个驱动。** Go 3 固件只把音量键发给 Intel HID 设备（`INT33D5`，`\_SB.HIDD`）：EC 事件 `_QD1`–`_QD4` 会向它发送通知码 `0xC4`–`0xC7`（音量加、减的按下和松开），而 macOS 没有这个设备的驱动。Go 2 只有在 Windows 的 Intel HID 驱动启用之后才走这条路，否则会退回到模拟的 PS/2 键盘（`PS2K`），由 VoodooPS2 接收；Go 3 则完全没有 `PS2K`。YogaSMC 的 YogaHIDD 能识别这些事件，但只能借 VoodooPS2 发出按键。
+
+**`IntelHIDButtons.kext` 做了什么。** 它挂在 `INT33D5` 上，告诉固件按键驱动已加载（依次调用 `BTNL`、`HDSM`、`BTNE`），再用自己的虚拟键盘把 `0xC4`–`0xC7` 转成音量键。调用 `BTNL` 后，电源键也会从 ACPI 电源键设备改到这个设备上（`0xCE` / `0xCF`），所以驱动会照原来 ACPI 设备的方式，把电源键按下通知给 macOS。源码和编译脚本见 [`Kexts-src/IntelHIDButtons`](Kexts-src/IntelHIDButtons)，用命令行工具和 [MacKernelSDK](https://github.com/acidanthera/MacKernelSDK) 就能编译，不需要 Xcode。
+
+**加到已经装好的系统里。** 在 Surface 上连好 Wi-Fi，在终端运行下面几行（脚本会先备份 `config.plist`，序列号等不会动）：
+
+```bash
+cd ~/Downloads
+curl -L -o Surface-Go-3-OpenCore.zip https://github.com/Mr-Drinking/Surface-Go-3-OpenCore/archive/refs/heads/main.zip
+unzip -q -o Surface-Go-3-OpenCore.zip
+sudo bash Surface-Go-3-OpenCore-main/add-kext-internal.sh IntelHIDButtons
+```
+
+拔掉 U 盘安装盘后重启。运行 `ioreg -rc IntelHIDButtons | grep -E 'DSMFunctions|ButtonCaps'` 能看到驱动有没有在运行。
+
+**撤销。** 如果 Surface 开不了机，就按住音量 − 从 U 盘安装盘启动，再把脚本提示的备份拷回去：
+
+```bash
+sudo diskutil mount disk0s1
+sudo cp ~/config-backup-日期-时间.plist /Volumes/EFI/EFI/OC/config.plist
+```
+
 ## 可选：系统原生 Wi-Fi 菜单
 
 AirportItlwm 可以用系统自带的 Wi-Fi 菜单。但在 Sequoia 上，它需要从旧版 macOS 提取的苹果驱动 `IOSkywalkFamily.kext` 和 `IO80211FamilyLegacy.kext`，还要加载 `AMFIPass.kext`、部分关闭 SIP（`csr-active-config = 03080000`），并且每次 macOS 更新后都要用 [OCLP-Mod](https://github.com/laobamac/OCLP-Mod/releases) 重新给系统打补丁。这里不分发苹果的这些二进制文件；需要的驱动和步骤见 [jlempen/Surface-Go-2-OpenCore](https://github.com/jlempen/Surface-Go-2-OpenCore)。
@@ -149,7 +175,8 @@ Pentium Gold 6500Y 的 Geekbench 6 成绩大约是单核 900–1050、多核 175
 - [acidanthera](https://github.com/acidanthera)：OpenCore、Lilu、VirtualSMC、WhateverGreen、AppleALC、NVMeFix、RestrictEvents、HibernationFixup、CPUFriend、BrcmPatchRAM（BlueToolFixup）、VoodooPS2；[btwise](https://gitee.com/btwise/OpenCore_NO_ACPI) / [wjz304](https://github.com/wjz304/OpenCore_NO_ACPI_Build)：OpenCore_NO_ACPI 构建
 - [OpenIntelWireless](https://github.com/OpenIntelWireless)：itlwm、IntelBluetoothFirmware、HeliPort
 - [VoodooI2C](https://github.com/VoodooI2C/VoodooI2C)、[ECEnabler](https://github.com/1Revenger1/ECEnabler)、[RealtekCardReader](https://github.com/0xFireWolf/RealtekCardReader) / [RealtekCardReaderFriend](https://github.com/0xFireWolf/RealtekCardReaderFriend)、[VoltageShift](https://github.com/sicreative/VoltageShift)
-- [linux-surface](https://github.com/linux-surface/acpidumps)：公开的 Surface Go 3 ACPI 表让电池修复成为可能
+- [linux-surface](https://github.com/linux-surface/acpidumps)：公开的 Surface Go 3 ACPI 表让电池和音量键修复成为可能
+- [BrightnessKeys](https://github.com/acidanthera/BrightnessKeys)（BSD-3-Clause）：`IntelHIDButtons` 的虚拟键盘照它的方式实现；Linux 的 `intel-hid` 驱动和 [YogaSMC](https://github.com/zhen-zen/YogaSMC) 提供了 Intel HID 接口的参考
 - [Dortania](https://dortania.github.io/OpenCore-Install-Guide/)：OpenCore 安装指南
 
 配置文件、SSDT 和脚本采用 MIT 许可证（见 [LICENSE](LICENSE)）。收录的各个驱动和 OpenCore 二进制文件沿用各自上游项目的许可证。
