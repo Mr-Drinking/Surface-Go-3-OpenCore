@@ -25,6 +25,7 @@ The Surface Go 3 is a Surface Go 2 with new CPUs: same chassis, display, Intel A
 - Touchscreen
 - Sound (ALC298, layout-id 69)
 - Power button
+- Volume buttons with `IntelHIDButtons.kext` (see [Volume and power buttons](#volume-and-power-buttons))
 
 **Expected to work (works on the Go 2 with the upstream EFI, not yet confirmed on a Go 3)**
 
@@ -37,7 +38,7 @@ The Surface Go 3 is a Surface Go 2 with new CPUs: same chassis, display, Intel A
 
 **Experimental**
 
-- Volume buttons with the included `IntelHIDButtons.kext`, disabled by default until it is confirmed on a Go 3. See [Volume buttons](#volume-buttons-experimental).
+- The power button with `IntelHIDButtons.kext` 1.0.1, which sends it as the Mac power key. Until that is confirmed, the kext stays disabled in `config.plist` by default; add it with `add-kext-internal.sh` (see [Volume and power buttons](#volume-and-power-buttons)).
 
 **Not working**
 - Front, rear and IR cameras (Intel IPU3, no macOS driver), NFC, automatic rotation
@@ -137,13 +138,13 @@ In the Surface UEFI (shut down, hold **Volume Up**, press Power):
 - **Read the boot logs.** Connect the stick to your Mac and run `sudo ./update-usb-efi.sh diskN`. It copies `opencore-*.txt` and panic reports into `logs/` and refreshes the stick's EFI. If no log was written, OpenCore never ran.
 - **Reset NVRAM** from the picker (press Space to show auxiliary entries).
 
-## Volume buttons (experimental)
+## Volume and power buttons
 
 **Why they need a kext.** The Go 3 firmware reports the volume buttons only to the Intel HID device (`INT33D5`, `\_SB.HIDD`): the EC queries `_QD1`–`_QD4` send it the notifications `0xC4`–`0xC7` (volume up / down, press / release). macOS has no driver for that device. The Go 2 only uses that path after Windows' Intel HID driver enables it, and otherwise falls back to an emulated PS/2 keyboard (`PS2K`) that VoodooPS2 handles; the Go 3 has no `PS2K` at all. YogaSMC's YogaHIDD understands these events but can only send keys through VoodooPS2.
 
-**What `IntelHIDButtons.kext` does.** It attaches to `INT33D5`, tells the firmware a buttons driver is loaded (`BTNL`, then `HDSM` and `BTNE`), and turns `0xC4`–`0xC7` into the volume keys through its own virtual keyboard. `BTNL` also moves the power button from the ACPI power button device to this device (`0xCE` / `0xCF`), so the kext forwards a power button press to macOS the same way the ACPI device did. Source and build script: [`Kexts-src/IntelHIDButtons`](Kexts-src/IntelHIDButtons) (Command Line Tools and [MacKernelSDK](https://github.com/acidanthera/MacKernelSDK), no Xcode needed).
+**What `IntelHIDButtons.kext` does.** It attaches to `INT33D5`, tells the firmware a buttons driver is loaded (`BTNL`, then `HDSM` and `BTNE`), and turns `0xC4`–`0xC7` into the volume keys through its own virtual keyboard. `BTNL` also moves the power button to this device (`0xCE` press, `0xCF` release), so the kext sends it as the Mac power key with the real press duration and macOS applies its usual power button behavior: hold it about 1.5 seconds to sleep, or press Control–power for the restart, sleep or shut down dialog. Version 1.0.0 forwarded the press with `IOPMrootDomain::receivePowerNotification`, which macOS ignores while the system is running, so a short press did nothing. Source and build script: [`Kexts-src/IntelHIDButtons`](Kexts-src/IntelHIDButtons) (Command Line Tools and [MacKernelSDK](https://github.com/acidanthera/MacKernelSDK), no Xcode needed).
 
-**Add it to an existing installation.** On the Surface, with Wi-Fi working, run in Terminal (it backs up your `config.plist` first and keeps your SMBIOS):
+**Add or update it on an existing installation.** On the Surface, with Wi-Fi working, run in Terminal (it backs up your `config.plist` first and keeps your SMBIOS):
 
 ```bash
 cd ~/Downloads

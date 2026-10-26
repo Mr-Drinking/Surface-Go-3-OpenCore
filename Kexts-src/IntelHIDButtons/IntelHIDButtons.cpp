@@ -11,7 +11,6 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/acpi/IOACPITypes.h>
 #include <IOKit/hidsystem/ev_keymap.h>
-#include <IOKit/pwr_mgt/RootDomain.h>
 
 #define super IOHIKeyboard
 OSDefineMetaClassAndStructors(IntelHIDButtons, IOHIKeyboard);
@@ -43,11 +42,12 @@ enum : UInt32 {
     kEvPowerRelease     = 0xcf,
 };
 
-// ADB codes the keymap below declares as the special volume keys (same as VoodooPS2).
+// ADB codes the keymap below declares as special keys (same as VoodooPS2).
 enum : UInt8 {
     kADBVolumeUp   = 0x48,
     kADBVolumeDown = 0x49,
     kADBMute       = 0x4a,
+    kADBPower      = 0x7f,
 };
 
 static IOPMPowerState gPowerStates[] = {
@@ -125,7 +125,7 @@ void IntelHIDButtons::readDSMMask() {
 
 void IntelHIDButtons::enableButtons() {
     // Report a buttons driver as loaded. On the Surface Go 3 this makes the EC send the buttons
-    // here (EC0.HFON = 1) and hides the ACPI power button, so power is handled below as well.
+    // here (EC0.HFON = 1) and hides the ACPI power button, so the power button is posted too.
     if (callHID(kFnBTNL) != kIOReturnSuccess)
         LOG("BTNL failed");
 
@@ -191,15 +191,10 @@ IOReturn IntelHIDButtons::message(UInt32 type, IOService *provider, void *argume
         case kEvVolumeUpRelease:   postKey(kADBVolumeUp, false); break;
         case kEvVolumeDownPress:   postKey(kADBVolumeDown, true); break;
         case kEvVolumeDownRelease: postKey(kADBVolumeDown, false); break;
-        case kEvPowerPress: {
-            // The same request the ACPI power button device would have made.
-            IOPMrootDomain *rootDomain = getPMRootDomain();
-            if (rootDomain)
-                rootDomain->receivePowerNotification(kIOPMPowerButton);
-            break;
-        }
-        case kEvPowerRelease:
-            break;
+        // The Mac power key with the real press duration: macOS then applies its usual power
+        // button behavior (hold to sleep, Control-Power for the shut down dialog, ...).
+        case kEvPowerPress:        postKey(kADBPower, true); break;
+        case kEvPowerRelease:      postKey(kADBPower, false); break;
         default:
             LOG("ignored event 0x%x", event);
             break;
@@ -221,16 +216,17 @@ UInt32 IntelHIDButtons::maxKeyCodes() { return NX_NUMKEYCODES; }
 
 const unsigned char *IntelHIDButtons::defaultKeymapOfLength(UInt32 *length) {
     // Keymap format from IOHIDFamily's IOHIKeyboardMapper: no modifiers, no character keys,
-    // no sequences, only the special volume keys.
+    // no sequences, only the special volume and power keys.
     static const unsigned char keymap[] = {
         0x00, 0x00,  // byte-sized entries
         0x00,        // modifier keys
         0x00,        // key definitions
         0x00,        // key sequences
-        0x03,        // special keys: (NX_KEYTYPE, ADB code)
+        0x04,        // special keys: (NX_KEYTYPE, ADB code)
         NX_KEYTYPE_SOUND_UP,   kADBVolumeUp,
         NX_KEYTYPE_SOUND_DOWN, kADBVolumeDown,
         NX_KEYTYPE_MUTE,       kADBMute,
+        NX_POWER_KEY,          kADBPower,
     };
     *length = sizeof(keymap);
     return keymap;

@@ -25,6 +25,7 @@ Surface Go 3 其实就是换了 CPU 的 Surface Go 2，机身、屏幕、Intel A
 - 触摸屏
 - 声音（ALC298，layout-id 69）
 - 电源键
+- 音量键（用 `IntelHIDButtons.kext`，见[音量键和电源键](#音量键和电源键)）
 
 **预计可用（上游 EFI 在 Go 2 上可用，Go 3 上尚未确认）**
 
@@ -37,7 +38,7 @@ Surface Go 3 其实就是换了 CPU 的 Surface Go 2，机身、屏幕、Intel A
 
 **实验性**
 
-- 音量键：用仓库自带的 `IntelHIDButtons.kext`。在 Go 3 上确认可用之前，默认是关闭的。见[音量键](#音量键实验性)。
+- 装了 `IntelHIDButtons.kext` 1.0.1 之后的电源键：它会把电源键当成 Mac 的电源键发给系统。确认之前，`config.plist` 里这个驱动默认关闭，可以用 `add-kext-internal.sh` 添加（见[音量键和电源键](#音量键和电源键)）。
 
 **不可用**
 - 前置、后置、红外摄像头（Intel IPU3，macOS 没有驱动），NFC，自动旋转
@@ -137,13 +138,13 @@ sudo ./make-usb.sh disk4
 - **看启动日志。** 把安装盘插回 Mac，运行 `sudo ./update-usb-efi.sh diskN`。它会把 `opencore-*.txt` 和内核崩溃记录拷到 `logs/`，并更新安装盘上的 EFI。如果一份日志都没有，说明 OpenCore 根本没运行。
 - **重置 NVRAM**：在 OpenCore 菜单按空格显示隐藏项，选 Reset NVRAM。
 
-## 音量键（实验性）
+## 音量键和电源键
 
 **为什么需要一个驱动。** Go 3 固件只把音量键发给 Intel HID 设备（`INT33D5`，`\_SB.HIDD`）：EC 事件 `_QD1`–`_QD4` 会向它发送通知码 `0xC4`–`0xC7`（音量加、减的按下和松开），而 macOS 没有这个设备的驱动。Go 2 只有在 Windows 的 Intel HID 驱动启用之后才走这条路，否则会退回到模拟的 PS/2 键盘（`PS2K`），由 VoodooPS2 接收；Go 3 则完全没有 `PS2K`。YogaSMC 的 YogaHIDD 能识别这些事件，但只能借 VoodooPS2 发出按键。
 
-**`IntelHIDButtons.kext` 做了什么。** 它挂在 `INT33D5` 上，告诉固件按键驱动已加载（依次调用 `BTNL`、`HDSM`、`BTNE`），再用自己的虚拟键盘把 `0xC4`–`0xC7` 转成音量键。调用 `BTNL` 后，电源键也会从 ACPI 电源键设备改到这个设备上（`0xCE` / `0xCF`），所以驱动会照原来 ACPI 设备的方式，把电源键按下通知给 macOS。源码和编译脚本见 [`Kexts-src/IntelHIDButtons`](Kexts-src/IntelHIDButtons)，用命令行工具和 [MacKernelSDK](https://github.com/acidanthera/MacKernelSDK) 就能编译，不需要 Xcode。
+**`IntelHIDButtons.kext` 做了什么。** 它挂在 `INT33D5` 上，告诉固件按键驱动已加载（依次调用 `BTNL`、`HDSM`、`BTNE`），再用自己的虚拟键盘把 `0xC4`–`0xC7` 转成音量键。调用 `BTNL` 后，电源键也会改到这个设备上（按下 `0xCE`、松开 `0xCF`），所以驱动把它当成 Mac 的电源键，按真实的按下时长发给系统，由 macOS 按标准方式处理：按住约 1.5 秒睡眠，Control + 电源键弹出「重新启动 / 睡眠 / 关机」菜单。1.0.0 版用的是 `IOPMrootDomain::receivePowerNotification`，系统运行时 macOS 会忽略它，所以轻按没有反应。源码和编译脚本见 [`Kexts-src/IntelHIDButtons`](Kexts-src/IntelHIDButtons)，用命令行工具和 [MacKernelSDK](https://github.com/acidanthera/MacKernelSDK) 就能编译，不需要 Xcode。
 
-**加到已经装好的系统里。** 在 Surface 上连好 Wi-Fi，在终端运行下面几行（脚本会先备份 `config.plist`，序列号等不会动）：
+**添加或更新到已经装好的系统里。** 在 Surface 上连好 Wi-Fi，在终端运行下面几行（脚本会先备份 `config.plist`，序列号等不会动）：
 
 ```bash
 cd ~/Downloads
