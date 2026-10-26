@@ -37,7 +37,7 @@ The Surface Go 3 is a Surface Go 2 with new CPUs: same chassis, display, Intel A
 
 **Not working**
 
-- Volume buttons (they work on the Go 2 with the same EFI; not investigated on the Go 3 yet)
+- Volume buttons. The Go 3 firmware reports them only to the Intel HID device (`INT33D5`, `\_SB.HIDD`) through the EC queries `_QD1`–`_QD4` (notifications `0xC4`–`0xC7`), and macOS has no driver for that device. The Go 2 only uses that path after Windows' Intel HID driver enables it, and otherwise falls back to an emulated PS/2 keyboard (`PS2K`), which VoodooPS2 handles; the Go 3 has no `PS2K` at all. YogaSMC's YogaHIDD understands these events but can only send keys through VoodooPS2, so a fix needs a small kext that posts the keys itself.
 - Front, rear and IR cameras (Intel IPU3, no macOS driver), NFC, automatic rotation
 - Sleep: use hibernation instead, which resumes in about 10 seconds
 - AirDrop, Handoff, Sidecar and other features that need an Apple-compatible Broadcom card

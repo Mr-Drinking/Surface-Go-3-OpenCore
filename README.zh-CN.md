@@ -37,7 +37,7 @@ Surface Go 3 其实就是换了 CPU 的 Surface Go 2，机身、屏幕、Intel A
 
 **不可用**
 
-- 音量键（同一份 EFI 在 Go 2 上可用，Go 3 上还没排查）
+- 音量键。Go 3 固件只通过 EC 事件 `_QD1`–`_QD4`，把音量键发给 Intel HID 设备（`INT33D5`，`\_SB.HIDD`，通知码 `0xC4`–`0xC7`），而 macOS 没有这个设备的驱动。Go 2 只有在 Windows 的 Intel HID 驱动启用之后才走这条路，否则会退回到模拟的 PS/2 键盘（`PS2K`），由 VoodooPS2 接收；Go 3 则完全没有 `PS2K`。YogaSMC 的 YogaHIDD 能识别这些事件，但只能借 VoodooPS2 发出按键，所以要修好，需要一个能自己发按键的小驱动。
 - 前置、后置、红外摄像头（Intel IPU3，macOS 没有驱动），NFC，自动旋转
 - 睡眠：改用休眠，唤醒大约 10 秒
 - 隔空投送、接力、随航等需要苹果兼容博通网卡的功能
