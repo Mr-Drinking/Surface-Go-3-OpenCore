@@ -21,19 +21,23 @@ Surface Go 3 其实就是换了 CPU 的 Surface Go 2，机身、屏幕、Intel A
 - 安装 macOS Sequoia，并从内置固态硬盘启动
 - 电池电量，以及系统设置里的「电池」页（靠下面的修复）
 - Wi-Fi（`itlwm` 驱动 + [HeliPort](https://github.com/OpenIntelWireless/HeliPort/releases) 客户端）
+- 蓝牙
+- 触摸屏
+- 声音（ALC298，layout-id 69）
+- 电源键
 
 **预计可用（上游 EFI 在 Go 2 上可用，Go 3 上尚未确认）**
 
 - 核显加速、亮度调节
-- 触摸屏和 Surface 触控笔
+- Surface 触控笔
 - Type Cover 键盘和多指触控板
-- 扬声器、麦克风、耳机孔（ALC298，layout-id 69）
-- 蓝牙、USB-C（包括视频输出）、microSD 读卡器
-- 电源键和音量键
+- 麦克风、耳机孔
+- USB-C（包括视频输出）、microSD 读卡器
 - 休眠（`hibernatemode 25`）
 
 **不可用**
 
+- 音量键（同一份 EFI 在 Go 2 上可用，Go 3 上还没排查）
 - 前置、后置、红外摄像头（Intel IPU3，macOS 没有驱动），NFC，自动旋转
 - 睡眠：改用休眠，唤醒大约 10 秒
 - 隔空投送、接力、随航等需要苹果兼容博通网卡的功能

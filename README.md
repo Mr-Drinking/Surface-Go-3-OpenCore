@@ -21,19 +21,23 @@ The Surface Go 3 is a Surface Go 2 with new CPUs: same chassis, display, Intel A
 - Installing macOS Sequoia and booting from the internal SSD
 - Battery percentage and the Battery pane in System Settings (with the fix below)
 - Wi-Fi with `itlwm` and [HeliPort](https://github.com/OpenIntelWireless/HeliPort/releases)
+- Bluetooth
+- Touchscreen
+- Sound (ALC298, layout-id 69)
+- Power button
 
 **Expected to work (works on the Go 2 with the upstream EFI, not yet confirmed on a Go 3)**
 
 - iGPU acceleration, brightness control
-- Touchscreen and Surface Pen
+- Surface Pen
 - Type Cover keyboard and multi-touch trackpad
-- Speakers, microphone, headphone jack (ALC298, layout-id 69)
-- Bluetooth, USB-C (including display output), microSD reader
-- Power and volume buttons
+- Microphone and headphone jack
+- USB-C (including display output), microSD reader
 - Hibernation (`hibernatemode 25`)
 
 **Not working**
 
+- Volume buttons (they work on the Go 2 with the same EFI; not investigated on the Go 3 yet)
 - Front, rear and IR cameras (Intel IPU3, no macOS driver), NFC, automatic rotation
 - Sleep: use hibernation instead, which resumes in about 10 seconds
 - AirDrop, Handoff, Sidecar and other features that need an Apple-compatible Broadcom card
