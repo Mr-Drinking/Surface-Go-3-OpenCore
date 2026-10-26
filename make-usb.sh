@@ -91,7 +91,7 @@ echo "==> [5/5] Copying post-install files to $VOL/PostInstall"
 rm -rf "$VOL/PostInstall"
 mkdir -p "$VOL/PostInstall"
 cp -RX "$HERE/EFI" "$VOL/PostInstall/"
-for f in install-efi-internal.sh README.md README.zh-CN.md LICENSE HeliPort.dmg; do
+for f in install-efi-internal.sh README.md README.en.md LICENSE HeliPort.dmg; do
     if [ -e "$HERE/$f" ]; then cp -X "$HERE/$f" "$VOL/PostInstall/"; fi
 done
 
